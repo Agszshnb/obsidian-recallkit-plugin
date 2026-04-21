@@ -1,0 +1,30 @@
+{
+	"name": "recallkit-obsidian-plugin",
+	"version": "0.1.0",
+	"description": "RecallKit Obsidian plugin for turning pasted text or vault PDFs into structured Markdown knowledge cards.",
+	"main": "main.js",
+	"type": "module",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"release:stage": "npm run build && node scripts/stage-release.mjs",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"knowledge-card",
+		"recallkit"
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^16.11.6",
+		"esbuild": "0.25.5",
+		"tslib": "2.4.0",
+		"typescript": "^5.8.3"
+	},
+	"dependencies": {
+		"obsidian": "latest",
+		"pdfjs-dist": "^5.6.205"
+	}
+}

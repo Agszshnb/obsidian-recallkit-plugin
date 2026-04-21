@@ -1,0 +1,47 @@
+.modal.recallkit-modal-container {
+	height: min(760px, 88vh);
+	max-height: 88vh;
+	max-width: 94vw;
+	min-height: 420px;
+	min-width: 560px;
+	overflow: auto;
+	resize: both;
+	width: min(920px, 94vw);
+}
+
+.recallkit-modal {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.recallkit-modal .setting-item {
+	align-items: flex-start;
+}
+
+.recallkit-modal .setting-item-control {
+	flex: 1 1 0;
+}
+
+.recallkit-modal textarea {
+	min-height: 160px;
+	width: 100%;
+}
+
+.recallkit-modal__preview {
+	font-family: var(--font-monospace);
+	min-height: 360px;
+	white-space: pre;
+}
+
+.recallkit-modal__actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.recallkit-setting-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.5;
+}
