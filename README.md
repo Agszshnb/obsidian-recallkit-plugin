@@ -1,104 +1,87 @@
 # RecallKit
 
-RecallKit is an Obsidian plugin that turns pasted text or text-based PDFs in your vault into structured Markdown knowledge cards.
+语言：中文 | [English](README.en.md)
 
-This is the first MVP release. It is intended for local testing, GitHub release distribution, and early user feedback before applying to the official Obsidian community plugin list.
+RecallKit 是一个面向 Obsidian 的知识卡片生成插件。它可以把粘贴文本、网页 URL、以及 vault 中的文本型 PDF 转换为结构清晰、可继续编辑的 Markdown 卡片，帮助用户把阅读材料快速沉淀进个人知识库。
 
-## Features
+适合用于：
 
-- Create a knowledge card from pasted text.
-- Select a PDF from the current vault and extract copyable text for analysis.
-- Use an OpenAI-compatible chat completions endpoint, with DeepSeek defaults.
-- Choose a built-in, vault Markdown, or manual analysis prompt.
-- Preview and edit the generated Markdown before saving.
-- Save cards into a configurable vault folder without overwriting existing files.
+- 阅读文章、报告、论文和社交媒体长文后快速整理要点。
+- 把网页内容转成可检索、可链接、可复盘的 Obsidian 笔记。
+- 为产品调研、竞品分析、行业新闻和资料归档生成统一格式的知识卡片。
+- 在保存前预览并调整 AI 生成内容，保留人工判断和编辑空间。
 
-## Current limits
+## 核心功能
 
-- URL content extraction is not implemented yet. Use text mode and paste the page content manually.
-- Scanned PDFs need OCR and are not supported in this release.
-- The plugin has only been manually tested in a desktop development vault.
-- Generated cards are AI drafts. Review them before keeping or reusing them.
+- **文本转卡片**：粘贴任意文本后生成结构化 Markdown 知识卡片。
+- **网页转卡片**：输入 URL，自动提取可读正文并用于分析。
+- **PDF 转卡片**：选择 vault 中的文本型 PDF，提取文字后生成卡片。
+- **多种分析模板**：内置通用内容、新闻 / 事件、论文 / 文献、社交媒体等分析角度。
+- **自定义 Prompt**：支持选择 vault 中的 Markdown prompt，或在弹窗中手动输入分析要求。
+- **保存前预览**：生成结果可在保存前检查和编辑。
+- **自动归档**：卡片保存到可配置的 vault 文件夹，并自动避免覆盖已有文件。
+- **开放模型配置**：支持 OpenAI-compatible Chat Completions API，默认配置面向 DeepSeek。
 
-## Privacy and network use
+## 使用方法
 
-RecallKit does not include telemetry, ads, or a RecallKit cloud service.
+1. 在 Obsidian 中打开 **Settings > Community plugins > RecallKit**。
+2. 填写 API base URL、API Key 和模型名称，例如 `https://api.deepseek.com` 与 `deepseek-chat`。
+3. 设置默认分析模板、输出文件夹和默认标签。
+4. 点击左侧功能区的 RecallKit 图标，或在命令面板中运行 **Create knowledge card / 创建知识卡片**。
+5. 选择输入来源：粘贴文本、输入网页 URL，或选择 vault 中的 PDF。
+6. 选择分析模板，也可以切换到自定义 prompt。
+7. 点击 **Analyze** 生成卡片，预览并编辑后保存到 vault。
 
-When you click **Analyze**, the plugin sends the selected text or extracted PDF text to the OpenAI-compatible API endpoint configured in settings. Your API key is stored in local Obsidian plugin data through `loadData()` and `saveData()`. The key is not written into generated Markdown cards.
+## 生成卡片内容
 
-For PDFs, RecallKit lists files in the current vault and reads only the PDF file you select.
+RecallKit 会把模型输出整理为 Markdown 文件，方便继续使用 Obsidian 的双链、标签、搜索和文件夹管理。典型卡片可以包含：
 
-## Development
+- 内容摘要和核心观点。
+- 关键事实、人物、时间线或数据点。
+- 可复盘的问题和行动建议。
+- 来源信息、标签和创建时间。
 
-Use a dedicated development vault instead of your main vault.
+具体结构会根据所选模板和自定义 prompt 调整。
 
-```powershell
-cd obsidian-plugin
-npm install
-npm run dev
-```
+## 安装
 
-In this workspace, the local development vault is:
+目前可通过 GitHub Release 手动安装：
 
-```text
-g:\01project\recallkit-obsidian-dev-vault
-```
-
-Its plugin path is a junction to this source directory:
-
-```text
-g:\01project\recallkit-obsidian-dev-vault\.obsidian\plugins\recallkit
-  -> g:\01project\recallkit\obsidian-plugin
-```
-
-Reload Obsidian after builds and enable **RecallKit** in community plugin settings.
-
-## Build
-
-```powershell
-npm run build
-```
-
-The production build writes `main.js` in this directory. The PDF.js worker is bundled into `main.js`, so the release follows Obsidian's standard three-file asset set.
-
-## Manual installation
-
-Build the plugin, then copy these files into:
+1. 下载 release 中的 `manifest.json`、`main.js`、`styles.css`。
+2. 在你的 vault 中创建插件目录：
 
 ```text
 VaultFolder/.obsidian/plugins/recallkit/
 ```
 
-Required files:
+3. 把三个文件放入该目录。
+4. 重启 Obsidian，进入 **Settings > Community plugins**，启用 **RecallKit**。
 
-- `manifest.json`
-- `main.js`
-- `styles.css`
+## 隐私和网络使用
 
-Then enable **RecallKit** in Obsidian.
+RecallKit 不包含遥测、广告或 RecallKit 云服务。
 
-## Release staging
+点击 **Analyze** 后，插件会把你选择的文本、网页正文或 PDF 文本发送到你在设置中配置的 OpenAI-compatible API endpoint。API Key 通过 Obsidian 插件数据保存在本地，不会写入生成的 Markdown 卡片。
+
+处理 PDF 时，RecallKit 只会读取你在当前 vault 中选择的文件。
+
+处理 URL 时，RecallKit 会请求你输入的网页地址并提取可读文本；当网页直连提取效果不佳时，会使用 Jina Reader（`https://r.jina.ai/`）获取更适合阅读的 Markdown 文本，然后再发送给你配置的模型服务。
+
+## 项目状态
+
+RecallKit 0.1.0 已完成核心知识卡片工作流：输入内容、选择分析模板、调用模型生成、预览编辑、保存到 Obsidian vault。后续会继续围绕更丰富的模板、安装体验和官方社区插件分发进行完善。
+
+## 开发者
+
+本项目使用 TypeScript 构建，遵循 Obsidian 插件标准结构。
 
 ```powershell
-npm run release:stage
+npm install
+npm run build
 ```
 
-This builds the plugin and stages GitHub release files under:
-
-```text
-obsidian-plugin/dist/recallkit-0.1.0/
-```
-
-Attach these files to the GitHub release:
+构建后会生成 Obsidian 插件运行所需的 `main.js`。发布资产包括：
 
 - `manifest.json`
 - `main.js`
 - `styles.css`
-
-The GitHub release tag must exactly match `manifest.json` version, for example `0.1.0` without a leading `v`.
-
-## Official community plugin submission notes
-
-Obsidian community plugin installation reads `manifest.json` and `README.md` from the repository root, then downloads `manifest.json`, `main.js`, and `styles.css` from the matching GitHub release.
-
-If this plugin is submitted to the official community list, publish `obsidian-plugin/` as the plugin repository root or move/copy the plugin release metadata to the repository root before submitting.
