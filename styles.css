@@ -40,8 +40,67 @@
 	gap: 8px;
 }
 
+.recallkit-progress {
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 12px;
+}
+
+.recallkit-progress__header {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+.recallkit-progress__title {
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-weight: 600;
+}
+
+.recallkit-progress__count,
+.recallkit-progress__message {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.recallkit-progress__track {
+	background: var(--background-modifier-border);
+	border-radius: 999px;
+	height: 6px;
+	overflow: hidden;
+}
+
+.recallkit-progress__bar {
+	background: var(--interactive-accent);
+	border-radius: inherit;
+	height: 100%;
+	transition: width 160ms ease;
+	width: 12%;
+}
+
+.recallkit-progress__bar--indeterminate {
+	animation: recallkit-progress-indeterminate 1.2s ease-in-out infinite;
+	width: 36%;
+}
+
 .recallkit-setting-note {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	line-height: 1.5;
+}
+
+@keyframes recallkit-progress-indeterminate {
+	0% {
+		transform: translateX(-110%);
+	}
+
+	100% {
+		transform: translateX(280%);
+	}
 }

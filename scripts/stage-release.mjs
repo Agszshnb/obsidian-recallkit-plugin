@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const manifest = JSON.parse(readFileSync("manifest.json", "utf8"));
@@ -9,6 +9,10 @@ mkdirSync(releaseDir, { recursive: true });
 
 for (const file of ["manifest.json", "main.js", "styles.css"]) {
 	copyFileSync(file, join(releaseDir, file));
+}
+
+if (existsSync("prompts")) {
+	cpSync("prompts", join(releaseDir, "prompts"), { recursive: true });
 }
 
 writeFileSync(
@@ -25,17 +29,18 @@ writeFileSync(
 		"- `manifest.json`",
 		"- `main.js`",
 		"- `styles.css`",
+		"- `prompts/literature-review.md`",
 		"",
 		"## Current scope",
 		"",
 		"- Paste text and generate a structured Markdown knowledge card.",
+		"- Enter a URL, extract readable page text with direct fetch plus Jina Reader fallback, and generate a structured Markdown knowledge card.",
 		"- Select a text-based PDF from the current vault and generate a literature-style card.",
 		"- Use an OpenAI-compatible chat completions endpoint configured by the user.",
 		"- Preview and edit Markdown before saving into the vault.",
 		"",
 		"## Not included yet",
 		"",
-		"- Automatic URL content extraction.",
 		"- OCR for scanned PDFs.",
 		"- Mobile validation.",
 		"",

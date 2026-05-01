@@ -18,6 +18,7 @@ RecallKit 是一个面向 Obsidian 的知识卡片生成插件。它可以把粘
 - **PDF 转卡片**：选择 vault 中的文本型 PDF，提取文字后生成卡片。
 - **多种分析模板**：内置通用内容、新闻 / 事件、论文 / 文献、社交媒体等分析角度。
 - **自定义 Prompt**：支持选择 vault 中的 Markdown prompt，或在弹窗中手动输入分析要求。
+- **长文分段分析**：短内容单次分析，长 URL / PDF / 文本会自动切分、分段分析并综合成最终卡片。
 - **保存前预览**：生成结果可在保存前检查和编辑。
 - **自动归档**：卡片保存到可配置的 vault 文件夹，并自动避免覆盖已有文件。
 - **开放模型配置**：支持 OpenAI-compatible Chat Completions API，默认配置面向 DeepSeek。
@@ -47,14 +48,14 @@ RecallKit 会把模型输出整理为 Markdown 文件，方便继续使用 Obsid
 
 目前可通过 GitHub Release 手动安装：
 
-1. 下载 release 中的 `manifest.json`、`main.js`、`styles.css`。
+1. 下载 release 中的 `manifest.json`、`main.js`、`styles.css` 和 `prompts/literature-review.md`。
 2. 在你的 vault 中创建插件目录：
 
 ```text
 VaultFolder/.obsidian/plugins/recallkit/
 ```
 
-3. 把三个文件放入该目录。
+3. 把前三个文件放入该目录，并保留 `prompts/literature-review.md` 的相对路径。
 4. 重启 Obsidian，进入 **Settings > Community plugins**，启用 **RecallKit**。
 
 ## 隐私和网络使用
@@ -69,7 +70,10 @@ RecallKit 不包含遥测、广告或 RecallKit 云服务。
 
 ## 项目状态
 
-RecallKit 0.1.0 已完成核心知识卡片工作流：输入内容、选择分析模板、调用模型生成、预览编辑、保存到 Obsidian vault。后续会继续围绕更丰富的模板、安装体验和官方社区插件分发进行完善。
+RecallKit 0.1.0 已完成核心知识卡片工作流：输入内容、选择分析模板、长文分段分析、调用模型生成、预览编辑、保存到 Obsidian vault。后续会继续围绕 URL 提取质量、安装体验和官方社区插件分发进行完善。
+
+维护者查看详细开发进度请读 [`docs/progress.md`](docs/progress.md)；AI 接手项目请读 [`AGENTS.md`](AGENTS.md)。
+GitHub 源码同步和 Release 上传规则请读 [`docs/github-upload-checklist.md`](docs/github-upload-checklist.md)。
 
 ## 开发者
 
@@ -85,3 +89,4 @@ npm run build
 - `manifest.json`
 - `main.js`
 - `styles.css`
+- `prompts/literature-review.md`

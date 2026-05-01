@@ -1,11 +1,18 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import RecallKitPlugin from "./main";
+import {
+	BUILT_IN_ANALYSIS_PROMPTS,
+	DEFAULT_BUILT_IN_PROMPT_ID,
+	isBuiltInAnalysisPromptId,
+} from "./prompts";
+import type { BuiltInAnalysisPromptId } from "./prompts";
 
 export interface RecallKitSettings {
 	provider: "openai-compatible";
 	baseUrl: string;
 	apiKey: string;
 	model: string;
+	defaultPromptId: BuiltInAnalysisPromptId;
 	outputFolder: string;
 	defaultTags: string;
 	openAfterCreate: boolean;
@@ -16,6 +23,7 @@ export const DEFAULT_SETTINGS: RecallKitSettings = {
 	baseUrl: "https://api.deepseek.com",
 	apiKey: "",
 	model: "deepseek-chat",
+	defaultPromptId: DEFAULT_BUILT_IN_PROMPT_ID,
 	outputFolder: "RecallKit Cards",
 	defaultTags: "recallkit",
 	openAfterCreate: true,
@@ -84,6 +92,30 @@ export class RecallKitSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.model)
 					.onChange(async (value) => {
 						this.plugin.settings.model = value.trim();
+						await this.plugin.saveSettings();
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("默认内置分析模板")
+			.setDesc("新建卡片弹窗默认使用的分析角度，也可以在弹窗中临时切换。")
+			.addDropdown((dropdown) => {
+				for (const prompt of BUILT_IN_ANALYSIS_PROMPTS) {
+					dropdown.addOption(prompt.id, prompt.label);
+				}
+
+				const currentPromptId = isBuiltInAnalysisPromptId(this.plugin.settings.defaultPromptId)
+					? this.plugin.settings.defaultPromptId
+					: DEFAULT_BUILT_IN_PROMPT_ID;
+
+				dropdown
+					.setValue(currentPromptId)
+					.onChange(async (value) => {
+						if (!isBuiltInAnalysisPromptId(value)) {
+							return;
+						}
+
+						this.plugin.settings.defaultPromptId = value;
 						await this.plugin.saveSettings();
 					});
 			});

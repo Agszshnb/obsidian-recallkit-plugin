@@ -18,6 +18,7 @@ It is useful for:
 - **PDF to card**: Select a text-based PDF from the current vault and turn extracted text into a card.
 - **Analysis templates**: Use built-in templates for general content, news/events, papers/literature, and social media.
 - **Custom prompts**: Choose a Markdown prompt from your vault or write a prompt directly in the modal.
+- **Long-document chunking**: Short content uses one model call, while long URL, PDF, or text inputs are chunked, analyzed in parts, and synthesized into one final card.
 - **Preview before saving**: Review and edit generated Markdown before it is written to your vault.
 - **Organized output**: Save cards into a configurable folder while avoiding filename overwrites.
 - **Flexible model setup**: Use an OpenAI-compatible Chat Completions API, with DeepSeek-oriented defaults.
@@ -47,14 +48,14 @@ The exact structure depends on the selected template and any custom prompt you p
 
 RecallKit can be installed manually from GitHub Releases:
 
-1. Download `manifest.json`, `main.js`, and `styles.css` from the release assets.
+1. Download `manifest.json`, `main.js`, `styles.css`, and `prompts/literature-review.md` from the release assets.
 2. Create this plugin folder in your vault:
 
 ```text
 VaultFolder/.obsidian/plugins/recallkit/
 ```
 
-3. Place the three files in that folder.
+3. Place the first three files in that folder, and keep `prompts/literature-review.md` at the same relative path.
 4. Restart Obsidian, open **Settings > Community plugins**, and enable **RecallKit**.
 
 ## Privacy And Network Use
@@ -69,7 +70,10 @@ For URLs, RecallKit requests the page you enter and extracts readable text. If d
 
 ## Project Status
 
-RecallKit 0.1.0 includes the core knowledge-card workflow: input selection, analysis template selection, model generation, preview editing, and saving to an Obsidian vault. Future work will continue around richer templates, smoother installation, and official Obsidian community plugin distribution.
+RecallKit 0.1.0 includes the core knowledge-card workflow: input selection, analysis template selection, long-document chunking, model generation, preview editing, and saving to an Obsidian vault. Future work will continue around URL extraction quality, smoother installation, and official Obsidian community plugin distribution.
+
+Maintainers can read [`docs/progress.md`](docs/progress.md) for detailed development progress. AI agents should read [`AGENTS.md`](AGENTS.md) before working in this repository.
+GitHub source sync and Release upload rules are documented in [`docs/github-upload-checklist.md`](docs/github-upload-checklist.md).
 
 ## Development
 
@@ -85,3 +89,4 @@ The build produces `main.js` for Obsidian. Release assets include:
 - `manifest.json`
 - `main.js`
 - `styles.css`
+- `prompts/literature-review.md`

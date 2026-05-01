@@ -28,21 +28,7 @@ export function buildKnowledgeCardMarkdown(input: KnowledgeCardMarkdownInput): s
 		"",
 		`# ${input.draft.title}`,
 		"",
-		"## 摘要",
-		"",
-		input.draft.summary,
-		"",
-		"## 核心观点",
-		"",
-		renderList(input.draft.core_points),
-		"",
-		"## 关键论据",
-		"",
-		renderList(input.draft.key_arguments),
-		"",
-		"## 具体做法",
-		"",
-		renderList(input.draft.specific_actions),
+		renderSections(input.draft.sections),
 		"",
 		"## 质量提示",
 		"",
@@ -56,6 +42,31 @@ export function buildKnowledgeCardMarkdown(input: KnowledgeCardMarkdownInput): s
 		"",
 		input.sourceValue.trim(),
 		"",
+	].join("\n");
+}
+
+function renderSections(sections: RecallKitCardDraft["sections"]): string {
+	if (sections.length === 0) {
+		return [
+			"## 内容概览",
+			"",
+			"No summary generated.",
+		].join("\n");
+	}
+
+	return sections.map(renderSection).join("\n\n");
+}
+
+function renderSection(section: RecallKitCardDraft["sections"][number]): string {
+	const body = [
+		section.content?.trim() ?? "",
+		renderList(section.items ?? []),
+	].filter((part) => part.length > 0);
+
+	return [
+		`## ${section.title}`,
+		"",
+		body.join("\n\n") || "No content generated.",
 	].join("\n");
 }
 
@@ -78,10 +89,6 @@ function parseTags(value: string): string[] {
 }
 
 function renderList(items: string[]): string {
-	if (items.length === 0) {
-		return "- 未生成";
-	}
-
 	return items.map((item) => `- ${item}`).join("\n");
 }
 

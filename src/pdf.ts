@@ -2,7 +2,7 @@ import { App, TFile } from "obsidian";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist/legacy/build/pdf.mjs";
 import pdfWorkerSource from "pdfjs-worker";
 
-const MAX_PDF_TEXT_CHARS = 30000;
+const MAX_PDF_TEXT_CHARS = 500000;
 
 export interface PdfExtractionResult {
 	path: string;

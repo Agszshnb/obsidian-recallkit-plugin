@@ -1,10 +1,18 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import RecallKitPlugin from "./main";
 import { createKnowledgeCard } from "./file";
-import { analyzeWithOpenAICompatibleApi, RecallKitCardDraft } from "./llm";
+import { fetchUrlContent } from "./fetch";
+import { AnalysisProgress, analyzeWithOpenAICompatibleApi, RecallKitCardDraft } from "./llm";
 import { buildKnowledgeCardMarkdown } from "./markdown";
 import { extractTextFromVaultPdf } from "./pdf";
-import { AnalysisPromptMode, loadAnalysisPrompt } from "./prompts";
+import {
+	AnalysisPromptMode,
+	BUILT_IN_ANALYSIS_PROMPTS,
+	BuiltInAnalysisPromptId,
+	DEFAULT_BUILT_IN_PROMPT_ID,
+	isBuiltInAnalysisPromptId,
+	loadAnalysisPrompt,
+} from "./prompts";
 
 type SourceType = "text" | "url" | "pdf";
 type ModalState = "input" | "analyzing" | "preview";
@@ -14,18 +22,23 @@ export class RecallKitInputModal extends Modal {
 	private sourceType: SourceType = "text";
 	private sourceValue = "";
 	private userNote = "";
-	private analysisPromptMode: AnalysisPromptMode = "default";
+	private analysisPromptMode: AnalysisPromptMode = "built-in";
+	private builtInPromptId: BuiltInAnalysisPromptId = DEFAULT_BUILT_IN_PROMPT_ID;
 	private vaultPromptPath = "";
 	private manualPrompt = "";
 	private outputFolder = "";
 	private state: ModalState = "input";
 	private draft: RecallKitCardDraft | null = null;
 	private markdownPreview = "";
+	private analysisProgress: AnalysisProgress | null = null;
 
 	constructor(app: App, plugin: RecallKitPlugin) {
 		super(app);
 		this.plugin = plugin;
 		this.outputFolder = plugin.settings.outputFolder;
+		this.builtInPromptId = isBuiltInAnalysisPromptId(plugin.settings.defaultPromptId)
+			? plugin.settings.defaultPromptId
+			: DEFAULT_BUILT_IN_PROMPT_ID;
 	}
 
 	onOpen(): void {
@@ -84,15 +97,19 @@ export class RecallKitInputModal extends Modal {
 		} else {
 			new Setting(contentEl)
 				.setName("内容或 URL")
-				.setDesc("当前版本支持粘贴文本。URL 抓取会在 M2 接入。")
+				.setDesc("文本模式会直接分析粘贴内容；URL 模式会抓取网页正文后再分析。")
 				.addTextArea((text) => {
 					text
-						.setPlaceholder("在这里粘贴正文或 URL")
+						.setPlaceholder("在这里粘贴正文，或输入 https://example.com/article")
 						.setValue(this.sourceValue)
 						.onChange((value) => {
 							this.sourceValue = value;
 						});
-				});
+			});
+		}
+
+		if (this.state === "analyzing") {
+			this.renderAnalysisProgress(contentEl);
 		}
 
 		this.renderAnalysisPromptControls(contentEl);
@@ -131,19 +148,31 @@ export class RecallKitInputModal extends Modal {
 			return;
 		}
 
-		if (this.sourceType === "url") {
-			new Notice("URL 抓取会在 M2 接入。当前请粘贴正文并使用“文本”模式。");
-			return;
-		}
-
 		this.state = "analyzing";
+		this.analysisProgress = {
+			stage: "preparing",
+			message: "正在准备分析内容。",
+		};
 		this.render();
 
 		try {
+			this.updateAnalysisProgress({
+				stage: "preparing",
+				message: this.sourceType === "pdf"
+					? "正在读取 PDF 并提取文字。"
+					: this.sourceType === "url"
+						? "正在抓取网页正文。"
+						: "正在读取粘贴文本。",
+			});
 			const content = await this.getAnalysisContent();
+			this.updateAnalysisProgress({
+				stage: "preparing",
+				message: "正在加载分析模板。",
+			});
 			const analysisPrompt = await loadAnalysisPrompt({
 				app: this.app,
 				mode: this.analysisPromptMode,
+				builtInPromptId: this.builtInPromptId,
 				vaultPromptPath: this.vaultPromptPath,
 				manualPrompt: this.manualPrompt,
 			});
@@ -151,8 +180,15 @@ export class RecallKitInputModal extends Modal {
 				settings: this.plugin.settings,
 				content,
 				sourceType: this.sourceType,
-				sourceUrl: this.sourceType === "pdf" ? this.sourceValue : "",
+				sourceUrl: this.sourceType === "url" ? this.sourceValue : "",
 				analysisPrompt,
+				onProgress: (progress) => {
+					this.updateAnalysisProgress(progress);
+				},
+			});
+			this.updateAnalysisProgress({
+				stage: "done",
+				message: "分析完成，正在生成 Markdown 预览。",
 			});
 			this.markdownPreview = buildKnowledgeCardMarkdown({
 				draft: this.draft,
@@ -162,11 +198,51 @@ export class RecallKitInputModal extends Modal {
 				defaultTags: this.plugin.settings.defaultTags,
 			});
 			this.state = "preview";
+			this.analysisProgress = null;
 			this.render();
 		} catch (error) {
 			this.state = "input";
+			this.analysisProgress = null;
 			this.render();
 			new Notice(readErrorMessage(error));
+		}
+	}
+
+	private updateAnalysisProgress(progress: AnalysisProgress): void {
+		this.analysisProgress = progress;
+		this.render();
+	}
+
+	private renderAnalysisProgress(contentEl: HTMLElement): void {
+		const progress = this.analysisProgress;
+		const progressEl = contentEl.createDiv({ cls: "recallkit-progress" });
+		const headerEl = progressEl.createDiv({ cls: "recallkit-progress__header" });
+		headerEl.createSpan({
+			cls: "recallkit-progress__title",
+			text: readProgressTitle(progress),
+		});
+
+		if (progress?.current !== undefined && progress.total !== undefined) {
+			headerEl.createSpan({
+				cls: "recallkit-progress__count",
+				text: `${progress.current}/${progress.total}`,
+			});
+		}
+
+		progressEl.createDiv({
+			cls: "recallkit-progress__message",
+			text: progress?.message ?? "正在分析。",
+		});
+
+		const trackEl = progressEl.createDiv({ cls: "recallkit-progress__track" });
+		const barEl = trackEl.createDiv({ cls: "recallkit-progress__bar" });
+		const ratio = progress?.current !== undefined && progress.total !== undefined
+			? Math.min(progress.current / progress.total, 1)
+			: undefined;
+		if (ratio === undefined) {
+			barEl.addClass("recallkit-progress__bar--indeterminate");
+		} else {
+			barEl.style.width = `${Math.max(ratio * 100, 8)}%`;
 		}
 	}
 
@@ -176,7 +252,7 @@ export class RecallKitInputModal extends Modal {
 			.setDesc("这个内容会发送给大模型，用来控制分析角度。")
 			.addDropdown((dropdown) => {
 				dropdown
-					.addOption("default", "使用内置文献综述提示词")
+					.addOption("built-in", "使用内置分析模板")
 					.addOption("vault-md", "从 vault 的 Markdown 文件加载")
 					.addOption("manual", "现场输入")
 					.setValue(this.analysisPromptMode)
@@ -189,6 +265,10 @@ export class RecallKitInputModal extends Modal {
 					});
 			});
 
+		if (this.analysisPromptMode === "built-in" || this.analysisPromptMode === "default") {
+			this.renderBuiltInPromptSelector(contentEl);
+		}
+
 		if (this.analysisPromptMode === "vault-md") {
 			this.renderVaultPromptSelector(contentEl);
 		}
@@ -198,13 +278,37 @@ export class RecallKitInputModal extends Modal {
 				.setName("现场 Prompt")
 				.addTextArea((text) => {
 					text
-						.setPlaceholder("例如：请从文献综述角度总结，重点关注研究问题、方法、样本、结论、局限和可引用观点。")
+						.setPlaceholder("例如：请从产品研究角度总结，重点关注用户问题、场景、证据、启发和下一步动作。")
 						.setValue(this.manualPrompt)
 						.onChange((value) => {
 							this.manualPrompt = value;
 						});
 				});
 		}
+	}
+
+	private renderBuiltInPromptSelector(contentEl: HTMLElement): void {
+		const selectedPrompt = BUILT_IN_ANALYSIS_PROMPTS.find((prompt) => prompt.id === this.builtInPromptId);
+
+		new Setting(contentEl)
+			.setName("内置分析模板")
+			.setDesc(selectedPrompt?.description ?? "选择本次分析的内容类型和提炼角度。")
+			.addDropdown((dropdown) => {
+				for (const prompt of BUILT_IN_ANALYSIS_PROMPTS) {
+					dropdown.addOption(prompt.id, prompt.label);
+				}
+
+				dropdown
+					.setValue(this.builtInPromptId)
+					.onChange((value) => {
+						if (!isBuiltInAnalysisPromptId(value)) {
+							return;
+						}
+
+						this.builtInPromptId = value;
+						this.render();
+					});
+			});
 	}
 
 	private renderVaultPromptSelector(contentEl: HTMLElement): void {
@@ -277,8 +381,24 @@ export class RecallKitInputModal extends Modal {
 	}
 
 	private async getAnalysisContent(): Promise<string> {
-		if (this.sourceType !== "pdf") {
+		if (this.sourceType === "text") {
 			return this.sourceValue;
+		}
+
+		if (this.sourceType === "url") {
+			const fetched = await fetchUrlContent(this.sourceValue);
+			this.sourceValue = fetched.url;
+			const truncatedHint = fetched.truncated
+				? "\n\n注意：URL 内容较长，插件只提取了前一部分文字。请在 quality_hint 中提醒用户。"
+				: "";
+
+			return [
+				`URL：${fetched.url}`,
+				fetched.title ? `标题：${fetched.title}` : "",
+				`提取方式：${fetched.extractionMethod === "jina-reader" ? "Jina Reader fallback" : "direct request"}`,
+				truncatedHint,
+				fetched.content,
+			].filter(Boolean).join("\n\n");
 		}
 
 		if (!this.sourceValue) {
@@ -403,4 +523,32 @@ export class RecallKitInputModal extends Modal {
 
 function readErrorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : "RecallKit 分析失败。";
+}
+
+function readProgressTitle(progress: AnalysisProgress | null): string {
+	if (!progress) {
+		return "正在分析";
+	}
+
+	if (progress.stage === "preparing") {
+		return "准备内容";
+	}
+
+	if (progress.stage === "single-pass") {
+		return "模型分析";
+	}
+
+	if (progress.stage === "chunking") {
+		return "切分长文档";
+	}
+
+	if (progress.stage === "chunk") {
+		return "分段分析";
+	}
+
+	if (progress.stage === "synthesizing") {
+		return "综合结果";
+	}
+
+	return "生成预览";
 }
