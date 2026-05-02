@@ -1,9 +1,10 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import RecallKitPlugin from "./main";
-import { createKnowledgeCard } from "./file";
+import { createKnowledgeCard, createMarkdownFile } from "./file";
 import { fetchUrlContent } from "./fetch";
 import { AnalysisProgress, analyzeWithOpenAICompatibleApi, RecallKitCardDraft } from "./llm";
 import { buildKnowledgeCardMarkdown } from "./markdown";
+import { parseVaultPdfWithMinerUCloud } from "./mineru";
 import { extractTextFromVaultPdf } from "./pdf";
 import {
 	AnalysisPromptMode,
@@ -48,6 +49,15 @@ export class RecallKitInputModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty();
+	}
+
+	close(): void {
+		if (this.state === "analyzing") {
+			new Notice("RecallKit is still analyzing. Please wait for the preview before closing this window.");
+			return;
+		}
+
+		super.close();
 	}
 
 	private render(): void {
@@ -405,6 +415,43 @@ export class RecallKitInputModal extends Modal {
 			throw new Error("当前 vault 中没有可分析的 PDF 文件。请先把 PDF 放入测试 vault。");
 		}
 
+		if (this.plugin.settings.pdfParser === "mineru-cloud") {
+			const mineru = await parseVaultPdfWithMinerUCloud({
+				app: this.app,
+				path: this.sourceValue,
+				settings: this.plugin.settings,
+				onProgress: (progress) => {
+					this.updateAnalysisProgress(progress);
+				},
+			});
+			let savedMarkdownPath = "";
+			if (this.plugin.settings.mineruSaveMarkdown) {
+				this.updateAnalysisProgress({
+					stage: "preparing",
+					message: "正在把 MinerU Markdown 保存到 vault。",
+				});
+				const savedFile = await createMarkdownFile({
+					app: this.app,
+					folder: this.plugin.settings.mineruOutputFolder,
+					baseName: `${stripExtension(mineru.path)}-mineru-full`,
+					markdown: buildMinerUMarkdownSource({
+						pdfPath: mineru.path,
+						taskState: mineru.taskState,
+						content: mineru.text,
+					}),
+				});
+				savedMarkdownPath = savedFile.path;
+			}
+
+			return [
+				`PDF 文件：${mineru.path}`,
+				"PDF 解析器：MinerU 云端 API",
+				`MinerU 任务状态：${mineru.taskState}`,
+				savedMarkdownPath ? `已保存 MinerU Markdown：${savedMarkdownPath}` : "",
+				mineru.text,
+			].filter(Boolean).join("\n\n");
+		}
+
 		const pdf = await extractTextFromVaultPdf(this.app, this.sourceValue);
 		const truncatedHint = pdf.truncated
 			? "\n\n注意：PDF 较长，插件只提取了前一部分文字。请在 quality_hint 中提醒用户。"
@@ -519,6 +566,29 @@ export class RecallKitInputModal extends Modal {
 
 		this.close();
 	}
+}
+
+function stripExtension(path: string): string {
+	const fileName = path.split("/").pop() || path;
+	return fileName.replace(/\.[^.]+$/, "");
+}
+
+function buildMinerUMarkdownSource(options: {
+	pdfPath: string;
+	taskState: string;
+	content: string;
+}): string {
+	return [
+		"---",
+		"source_type: pdf",
+		`source_path: ${JSON.stringify(options.pdfPath)}`,
+		"parser: mineru-cloud",
+		`mineru_task_state: ${JSON.stringify(options.taskState)}`,
+		`created_at: ${JSON.stringify(new Date().toISOString())}`,
+		"---",
+		"",
+		options.content,
+	].join("\n");
 }
 
 function readErrorMessage(error: unknown): string {

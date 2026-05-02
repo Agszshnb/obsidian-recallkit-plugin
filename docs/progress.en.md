@@ -2,7 +2,7 @@
 
 Language: [中文](progress.md) | English
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 Current version: 0.1.0
 
 ## Purpose Of This Document
@@ -16,7 +16,7 @@ This document is for the project owner. It answers "what has been built, what is
 
 ## Current Status
 
-RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn text, web URL content, and text-based PDFs in the vault into structured Markdown knowledge cards.
+RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn text, web URL content, and vault PDFs into structured Markdown knowledge cards, with optional MinerU Cloud parsing for higher-fidelity PDF extraction.
 
 ## Completed
 
@@ -33,7 +33,7 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 - List PDF files in the current vault.
 - Extract copyable text from text-based PDFs.
 - Add PDF path, page count, and truncation hints to the analysis input.
-- Keep scanned PDF OCR out of scope for the current stage.
+- Keep built-in pdf.js as a local text-based PDF parser; scanned PDF OCR is handled through optional MinerU Cloud parsing.
 
 ### M2: URL Extraction
 
@@ -83,19 +83,30 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 - Markdown rendering now builds second-level headings from `sections`, so cards no longer have to follow the same Summary / Key Ideas / Evidence / Actions structure.
 - Legacy field compatibility remains: if a model or older prompt returns the old fields, RecallKit converts them into sections instead of failing the flow.
 
+### M2.6: MinerU Cloud PDF Parsing
+
+- Add a PDF parser setting with two modes: built-in pdf.js and MinerU Cloud API.
+- Add MinerU Cloud settings for API token, model version, OCR, table recognition, formula recognition, document language, and polling timeout.
+- Implement MinerU signed upload flow through `/api/v4/file-urls/batch`.
+- Poll `/api/v4/extract-results/batch/{batch_id}` until the task is done or failed.
+- Download the MinerU result zip, extract `full.md`, and pass that parsed Markdown into the existing card analysis pipeline.
+- Optionally save the MinerU `full.md` result into the current vault. The default folder is `RecallKit Sources`.
+- Keep built-in pdf.js as the default local fallback for text-based PDFs.
+
 ## Known Limits
 
 - Sites with strong anti-bot behavior, such as Zhihu, may block both direct fetch and Jina Reader.
 - Login-gated pages are not automatically supported. Users should copy the page body and use text mode.
 - Heavy JavaScript-rendered pages may return shell or incomplete content.
-- OCR for scanned PDFs is not implemented.
+- OCR for scanned PDFs is available only when the user configures MinerU Cloud API and enables OCR.
 - Mobile behavior has not been validated.
 - URL extraction is best-effort. Users should review the preview before saving generated cards.
 
 ## Recommended Manual Tests
 
 - Text mode: paste a short article and generate a knowledge card.
-- PDF mode: select a text-based PDF from the development vault.
+- PDF mode with built-in pdf.js: select a text-based PDF from the development vault.
+- PDF mode with MinerU Cloud API: configure a MinerU token, select a vault PDF, confirm the flow reaches card preview, and confirm `full.md` is saved under `RecallKit Sources` when enabled.
 - Direct URL mode: test `https://example.com`.
 - Article URL mode: test a public article page, such as `https://www.paulgraham.com/greatwork.html`.
 - URL fallback mode: test a page where direct fetch fails but Jina Reader can read the content.
@@ -104,7 +115,7 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 
 ## Next Milestones
 
-### M2.6: URL Extraction Quality
+### M2.7: URL Extraction Quality
 
 - Improve user-facing messages for blocked URLs.
 - Show extraction method in the preview UI or source section.

@@ -1,6 +1,6 @@
-# RecallKit 插件 Workflow
+﻿# RecallKit 插件 Workflow
 
-最后更新：2026-05-01
+最后更新：2026-05-02
 
 ## 当前主流程
 
@@ -24,11 +24,18 @@ flowchart TD
     F6 -->|可用| F4
     F6 -->|不可用| X[停止并提示用户<br/>改用文本模式或检查来源]
     F4 --> H
-
-    G --> G1[pdf.js 提取可复制文字]
-    G1 --> G2{是否提取到文本}
-    G2 -->|是| H
-    G2 -->|否| X2[停止并提示<br/>扫描版 PDF 暂不支持 OCR]
+    G --> G0{PDF parser}
+    G0 -->|Built-in pdf.js| G1[pdf.js text extraction]
+    G1 --> G2{Extracted text?}
+    G2 -->|yes| H
+    G2 -->|no| X2[Stop and suggest MinerU OCR for scanned PDFs]
+    G0 -->|MinerU Cloud API| G3[Request signed upload URL and upload PDF]
+    G3 --> G4[Poll MinerU batch result]
+    G4 --> G5[Download result zip and extract full.md]
+    G5 --> G6{Save MinerU Markdown?}
+    G6 -->|yes| G7[Write full.md into RecallKit Sources]
+    G6 -->|no| H
+    G7 --> H
 
     H -->|内置分析模板| I[选择通用 / 新闻 / 论文 / 社交媒体]
     H -->|vault Markdown prompt| J[选择 vault 中的 .md 提示词文件]
@@ -56,6 +63,13 @@ flowchart TD
     S -->|否| U[完成]
     T --> U
 ```
+
+## 2026-05-02 PDF parsing update
+
+PDF input has two parser paths:
+
+- Built-in pdf.js: local text extraction for text-based PDFs.
+- MinerU Cloud API: signed upload -> batch polling -> result zip download -> `full.md` extraction -> optional vault save -> existing RecallKit card analysis.
 
 ## 模块职责
 

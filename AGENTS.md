@@ -19,7 +19,10 @@ This file is for AI coding agents working inside this repository. It is not the 
 - URL extraction uses direct `requestUrl` first, then Jina Reader fallback when direct extraction fails or returns too little readable text.
 - Long content is analyzed with a single pass up to 90,000 characters; longer content is split into about 20,000-character chunks, analyzed with concurrency 2, then synthesized.
 - Card body output uses dynamic `sections` with `title`, `content`, and `items`; legacy `summary/core_points/key_arguments/specific_actions` responses are normalized into sections for compatibility.
-- PDF extraction uses `pdfjs-dist` and supports text-based PDFs only. OCR for scanned PDFs is not implemented.
+- PDF extraction can use built-in `pdfjs-dist` or MinerU Cloud API. MinerU Cloud uploads the selected vault PDF through the signed upload URL flow, polls the batch result endpoint, downloads the result zip, extracts `full.md`, and passes that Markdown into the existing card analysis pipeline.
+- MinerU `full.md` is saved into the current vault when `mineruSaveMarkdown` is enabled. Default folder: `RecallKit Sources`.
+- Built-in pdf.js remains a local fallback and supports text-based PDFs only. Scanned PDF OCR requires MinerU Cloud with OCR enabled.
+- MinerU Cloud settings live in `src/settings.ts`: parser choice, API token, model version, OCR/table/formula flags, language, and polling timeout. Do not write MinerU tokens into generated Markdown cards.
 - Release staging copies `manifest.json`, `main.js`, `styles.css`, and `prompts/literature-review.md` into `dist/recallkit-<version>/`.
 - GitHub upload and release rules are centralized in `docs/github-upload-checklist.md`.
 
@@ -37,7 +40,8 @@ npm run release:stage
 - Keep all API providers OpenAI-compatible for this version.
 - Do not write API keys into generated Markdown cards.
 - User notes are saved only into the final card; they must not be sent to the model.
-- All vault writes must remain user-confirmed through the preview/save flow.
+- Final knowledge-card vault writes must remain user-confirmed through the preview/save flow.
+- MinerU intermediate Markdown writes are allowed only when the user has enabled `mineruSaveMarkdown`; keep them limited to the configured `mineruOutputFolder`.
 - Treat URL extraction as best-effort. Do not promise authenticated pages, heavy JavaScript pages, or anti-bot-protected sites will work.
 - Keep external CLI, cookies, browser automation, and local services out of the default MVP path.
 

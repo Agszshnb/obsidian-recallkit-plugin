@@ -12,12 +12,31 @@ export async function createKnowledgeCard(options: CreateKnowledgeCardOptions): 
 	await ensureFolder(options.app, folderPath);
 
 	const baseName = `${formatDate(new Date())}-${sanitizeFileName(options.title)}`;
-	const path = await getAvailablePath(options.app, folderPath, baseName);
+	const path = await getAvailablePath(options.app, folderPath, baseName, "md");
 
 	return options.app.vault.create(path, options.markdown);
 }
 
-async function ensureFolder(app: App, folderPath: string): Promise<void> {
+export async function createMarkdownFile(options: {
+	app: App;
+	folder: string;
+	baseName: string;
+	markdown: string;
+}): Promise<TFile> {
+	const folderPath = normalizePath(options.folder || "RecallKit Sources");
+	await ensureFolder(options.app, folderPath);
+
+	const path = await getAvailablePath(
+		options.app,
+		folderPath,
+		sanitizeFileName(options.baseName),
+		"md",
+	);
+
+	return options.app.vault.create(path, options.markdown);
+}
+
+export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const parts = folderPath.split("/").filter(Boolean);
 	let current = "";
 
@@ -29,21 +48,26 @@ async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	}
 }
 
-async function getAvailablePath(app: App, folderPath: string, baseName: string): Promise<string> {
-	let candidate = normalizePath(`${folderPath}/${baseName}.md`);
+async function getAvailablePath(
+	app: App,
+	folderPath: string,
+	baseName: string,
+	extension: string,
+): Promise<string> {
+	let candidate = normalizePath(`${folderPath}/${baseName}.${extension}`);
 
 	if (!app.vault.getAbstractFileByPath(candidate)) {
 		return candidate;
 	}
 
 	for (let index = 2; index < 1000; index += 1) {
-		candidate = normalizePath(`${folderPath}/${baseName}-${index}.md`);
+		candidate = normalizePath(`${folderPath}/${baseName}-${index}.${extension}`);
 		if (!app.vault.getAbstractFileByPath(candidate)) {
 			return candidate;
 		}
 	}
 
-	return normalizePath(`${folderPath}/${baseName}-${Date.now()}.md`);
+	return normalizePath(`${folderPath}/${baseName}-${Date.now()}.${extension}`);
 }
 
 function sanitizeFileName(value: string): string {
