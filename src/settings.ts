@@ -12,6 +12,8 @@ export interface RecallKitSettings {
 	baseUrl: string;
 	apiKey: string;
 	model: string;
+	singlePassCharLimit: number;
+	urlParser: "mineru-cloud" | "direct";
 	pdfParser: "pdfjs" | "mineru-cloud";
 	mineruApiToken: string;
 	mineruModelVersion: "vlm" | "pipeline";
@@ -33,6 +35,8 @@ export const DEFAULT_SETTINGS: RecallKitSettings = {
 	baseUrl: "https://api.deepseek.com",
 	apiKey: "",
 	model: "deepseek-chat",
+	singlePassCharLimit: 200000,
+	urlParser: "mineru-cloud",
 	pdfParser: "pdfjs",
 	mineruApiToken: "",
 	mineruModelVersion: "vlm",
@@ -62,11 +66,41 @@ export class RecallKitSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl).setName("RecallKit").setHeading();
+		new Setting(containerEl)
+			.setName("单次分析上限")
+			.setDesc("低于该字符数时不分段，直接把完整内容交给 LLM。超过后会先提示确认，再改用分段分析。建议长上下文模型设为 200000 或更高。")
+			.addText((text) => {
+				text
+					.setPlaceholder("200000")
+					.setValue(String(this.plugin.settings.singlePassCharLimit))
+					.onChange(async (value) => {
+						const chars = Number.parseInt(value, 10);
+						this.plugin.settings.singlePassCharLimit = Number.isFinite(chars)
+							? Math.max(chars, 10000)
+							: 200000;
+						await this.plugin.saveSettings();
+					});
+			});
+
 		containerEl.createEl("p", {
 			cls: "recallkit-setting-note",
 			text: "RecallKit 会把待分析内容发送到你在这里配置的 OpenAI-compatible 模型服务。API Key 只保存在 Obsidian 插件设置里，不会写入 Markdown 卡片。",
 		});
 
+
+		new Setting(containerEl)
+			.setName("URL è§£æžå™¨")
+			.setDesc("MinerU äº‘ç«¯ä¼šå…ˆæŠŠç½‘é¡µè½¬æˆ Markdown å†äº¤ç»™ LLMï¼›ç›´æŽ¥æŠ“å–ä¼šä¿ç•™æ—§çš„ç½‘é¡µæå–å’Œ Jina Reader å›žé€€ã€‚")
+			.addDropdown((dropdown) => {
+				dropdown
+					.addOption("mineru-cloud", "MinerU äº‘ç«¯ API")
+					.addOption("direct", "ç›´æŽ¥æŠ“å– / Jina Reader")
+					.setValue(this.plugin.settings.urlParser)
+					.onChange(async (value) => {
+						this.plugin.settings.urlParser = value as RecallKitSettings["urlParser"];
+						await this.plugin.saveSettings();
+					});
+			});
 		new Setting(containerEl)
 			.setName("API 服务类型")
 			.setDesc("第一版支持 OpenAI-compatible API。")

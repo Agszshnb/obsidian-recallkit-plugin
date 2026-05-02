@@ -21,6 +21,7 @@ interface AnalyzeInput {
 	sourceType: "text" | "url" | "pdf";
 	sourceUrl: string;
 	analysisPrompt: string;
+	allowChunking?: boolean;
 	onProgress?: (progress: AnalysisProgress) => void;
 }
 
@@ -42,7 +43,7 @@ export interface AnalysisProgress {
 	total?: number;
 }
 
-const MAX_SINGLE_PASS_CHARS = 90000;
+const DEFAULT_SINGLE_PASS_CHARS = 200000;
 const MAX_TOTAL_INPUT_CHARS = 500000;
 const CHUNK_CHARS = 20000;
 const CHUNK_ANALYSIS_CONCURRENCY = 2;
@@ -53,19 +54,20 @@ export async function analyzeWithOpenAICompatibleApi(input: AnalyzeInput): Promi
 	const model = input.settings.model.trim();
 
 	if (!apiKey) {
-		throw new Error("API key is not configured. Open RecallKit settings and add your model API key.");
+		throw new Error("å°šæœªé…ç½® API Keyã€‚è¯·å…ˆæ‰“å¼€ RecallKit è®¾ç½®å¹¶å¡«å†™æ¨¡åž‹ API Keyã€‚");
 	}
 
 	if (!baseUrl) {
-		throw new Error("API base URL is not configured.");
+		throw new Error("å°šæœªé…ç½® API base URLã€‚");
 	}
 
 	if (!model) {
-		throw new Error("Model is not configured.");
+		throw new Error("å°šæœªé…ç½®æ¨¡åž‹ã€‚");
 	}
 
 	const trimmedContent = input.content.trim();
-	if (trimmedContent.length <= MAX_SINGLE_PASS_CHARS) {
+	const singlePassLimit = Math.max(input.settings.singlePassCharLimit || DEFAULT_SINGLE_PASS_CHARS, 10000);
+	if (trimmedContent.length <= singlePassLimit) {
 		input.onProgress?.({
 			stage: "single-pass",
 			message: "内容较短，正在一次性调用模型生成知识卡片。",
@@ -80,6 +82,10 @@ export async function analyzeWithOpenAICompatibleApi(input: AnalyzeInput): Promi
 			content: trimmedContent,
 			truncated: false,
 		});
+	}
+
+	if (!input.allowChunking) {
+		throw new Error(`内容长度 ${trimmedContent.length} 字符，超过单次分析上限 ${singlePassLimit} 字符。`);
 	}
 
 	input.onProgress?.({
@@ -280,7 +286,7 @@ async function requestChatCompletion(apiKey: string, baseUrl: string, body: obje
 
 	const rawContent = data.choices?.[0]?.message?.content;
 	if (!rawContent) {
-		throw new Error("The model response did not include message content.");
+		throw new Error("æ¨¡åž‹å“åº”ä¸­æ²¡æœ‰è¿”å›ž message contentã€‚");
 	}
 
 	return rawContent;
@@ -386,23 +392,23 @@ function parseJsonObject(rawContent: string): unknown {
 		if (start >= 0 && end > start) {
 			return JSON.parse(cleaned.slice(start, end + 1));
 		}
-		throw new Error("The model response was not valid JSON.");
+		throw new Error("æ¨¡åž‹å“åº”ä¸æ˜¯åˆæ³• JSONã€‚");
 	}
 }
 
 function normalizeDraft(value: unknown): RecallKitCardDraft {
 	if (!isRecord(value)) {
-		throw new Error("The model response JSON was not an object.");
+		throw new Error("æ¨¡åž‹å“åº” JSON ä¸æ˜¯å¯¹è±¡ã€‚");
 	}
 
 	const cardType = parseCardType(value.card_type);
 
 	return {
-		title: readString(value.title, "Untitled knowledge card"),
+		title: readString(value.title, "æœªå‘½åçŸ¥è¯†å¡ç‰‡"),
 		sections: readSections(value),
 		tags: readStringArray(value.tags),
 		card_type: cardType,
-		quality_hint: readString(value.quality_hint, "No quality hint."),
+		quality_hint: readString(value.quality_hint, "æ— è´¨é‡æç¤ºã€‚"),
 	};
 }
 

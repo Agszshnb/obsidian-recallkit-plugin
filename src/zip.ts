@@ -18,6 +18,29 @@ export async function readTextFileFromZip(
 	return new TextDecoder("utf-8").decode(fileBytes);
 }
 
+export interface ZipFileData {
+	name: string;
+	data: Uint8Array;
+}
+
+export async function readFilesFromZip(
+	zipData: ArrayBuffer,
+	shouldRead: (name: string) => boolean,
+): Promise<ZipFileData[]> {
+	const bytes = new Uint8Array(zipData);
+	const entries = readCentralDirectory(bytes).filter((entry) => shouldRead(entry.name));
+	const files: ZipFileData[] = [];
+
+	for (const entry of entries) {
+		files.push({
+			name: entry.name,
+			data: await readEntryBytes(bytes, entry),
+		});
+	}
+
+	return files;
+}
+
 interface ZipEntry {
 	name: string;
 	method: number;

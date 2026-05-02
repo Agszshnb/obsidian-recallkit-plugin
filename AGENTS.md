@@ -16,13 +16,13 @@ This file is for AI coding agents working inside this repository. It is not the 
 - Repository path: `g:\01project\obsidian-recallkit-plugin`.
 - Development vault: `g:\01project\recallkit-obsidian-dev-vault`.
 - Core workflow: text, URL, or vault PDF input -> prompt selection -> OpenAI-compatible Chat Completions analysis -> Markdown preview -> vault write.
-- URL extraction uses direct `requestUrl` first, then Jina Reader fallback when direct extraction fails or returns too little readable text.
-- Long content is analyzed with a single pass up to 90,000 characters; longer content is split into about 20,000-character chunks, analyzed with concurrency 2, then synthesized.
+- URL extraction defaults to MinerU Cloud API with `model_version: "MinerU-HTML"`, which submits the remote URL through `/api/v4/extract/task`, polls `/api/v4/extract/task/{task_id}`, downloads the result zip, extracts `full.md`, and passes that Markdown into the card analysis pipeline. The legacy direct `requestUrl` + Jina Reader fallback remains available through the `urlParser` setting.
+- Long content is analyzed in a single pass up to the configured `singlePassCharLimit` (default 200,000 characters). If content exceeds that limit, the modal asks the user to confirm before switching to chunked analysis. Confirmed chunking uses about 20,000-character chunks, concurrency 2, then synthesizes the final card.
 - Card body output uses dynamic `sections` with `title`, `content`, and `items`; legacy `summary/core_points/key_arguments/specific_actions` responses are normalized into sections for compatibility.
 - PDF extraction can use built-in `pdfjs-dist` or MinerU Cloud API. MinerU Cloud uploads the selected vault PDF through the signed upload URL flow, polls the batch result endpoint, downloads the result zip, extracts `full.md`, and passes that Markdown into the existing card analysis pipeline.
-- MinerU `full.md` is saved into the current vault when `mineruSaveMarkdown` is enabled. Default folder: `RecallKit Sources`.
+- MinerU `full.md` is saved into the current vault when `mineruSaveMarkdown` is enabled. Default folder: `RecallKit Sources`. PDF result images referenced from `images/...` are saved into a same-name assets folder and Markdown image links are rewritten to vault-relative paths.
 - Built-in pdf.js remains a local fallback and supports text-based PDFs only. Scanned PDF OCR requires MinerU Cloud with OCR enabled.
-- MinerU Cloud settings live in `src/settings.ts`: parser choice, API token, model version, OCR/table/formula flags, language, and polling timeout. Do not write MinerU tokens into generated Markdown cards.
+- MinerU Cloud settings live in `src/settings.ts`: URL parser choice, PDF parser choice, API token, model version, OCR/table/formula flags, language, and polling timeout. Do not write MinerU tokens into generated Markdown cards.
 - Release staging copies `manifest.json`, `main.js`, `styles.css`, and `prompts/literature-review.md` into `dist/recallkit-<version>/`.
 - GitHub upload and release rules are centralized in `docs/github-upload-checklist.md`.
 
@@ -41,8 +41,8 @@ npm run release:stage
 - Do not write API keys into generated Markdown cards.
 - User notes are saved only into the final card; they must not be sent to the model.
 - Final knowledge-card vault writes must remain user-confirmed through the preview/save flow.
-- MinerU intermediate Markdown writes are allowed only when the user has enabled `mineruSaveMarkdown`; keep them limited to the configured `mineruOutputFolder`.
-- Treat URL extraction as best-effort. Do not promise authenticated pages, heavy JavaScript pages, or anti-bot-protected sites will work.
+- MinerU intermediate Markdown and referenced asset writes are allowed only when the user has enabled `mineruSaveMarkdown`; keep them limited to the configured `mineruOutputFolder` and the generated source note's same-name assets folder.
+- Treat URL extraction as best-effort even with MinerU-HTML. Do not promise authenticated pages, heavy JavaScript pages, or anti-bot-protected sites will work.
 - Keep external CLI, cookies, browser automation, and local services out of the default MVP path.
 
 ## Documentation Update Rules

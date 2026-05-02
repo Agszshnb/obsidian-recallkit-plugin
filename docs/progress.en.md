@@ -64,8 +64,9 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 
 ### M2.3: Long Document Analysis and Progress Feedback
 
-- Analyze short content in a single model call, and automatically split long content into chunks before synthesizing the final card.
-- Current chunking uses about 20,000 characters per chunk, concurrency of 2, and a 500,000-character total input safety limit.
+- Analyze content below the configured single-pass limit in one model call. The default limit is 200,000 characters.
+- If content exceeds the single-pass limit, ask the user before switching to chunked analysis.
+- Chunked analysis uses about 20,000 characters per chunk, concurrency of 2, and a 500,000-character total input safety limit.
 - Add analysis progress feedback in the create-card modal for preparing content, single-pass analysis, chunking, chunk analysis, synthesis, and preview generation.
 - Add truncation hints for long URL and PDF inputs before sending them to the model, so `quality_hint` can describe content completeness.
 - Make model JSON parsing more tolerant by stripping code fences and extracting a JSON object from the response when possible.
@@ -91,22 +92,34 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 - Poll `/api/v4/extract-results/batch/{batch_id}` until the task is done or failed.
 - Download the MinerU result zip, extract `full.md`, and pass that parsed Markdown into the existing card analysis pipeline.
 - Optionally save the MinerU `full.md` result into the current vault. The default folder is `RecallKit Sources`.
+- When saving PDF MinerU Markdown, save referenced `images/...` assets into a same-name assets folder and rewrite Markdown image links to vault-relative paths.
 - Keep built-in pdf.js as the default local fallback for text-based PDFs.
+- Add a configurable single-pass analysis limit so around-90k-character MinerU Markdown can be sent to the LLM without automatic chunking.
+
+### M2.7: MinerU Cloud URL Parsing
+
+- Add a URL parser setting with two modes: MinerU Cloud API and Direct / Jina Reader.
+- Use MinerU Cloud API `/api/v4/extract/task` for URL mode when `urlParser` is `mineru-cloud`.
+- Submit web URLs with `model_version: "MinerU-HTML"`, poll `/api/v4/extract/task/{task_id}`, download the result zip, extract `full.md`, and pass that Markdown into the existing card analysis pipeline.
+- Optionally save MinerU URL `full.md` results into the current vault using the same `RecallKit Sources` setting as PDF parsing.
+- Keep the previous direct request plus Jina Reader extraction path as an explicit fallback parser option.
 
 ## Known Limits
 
-- Sites with strong anti-bot behavior, such as Zhihu, may block both direct fetch and Jina Reader.
+- Sites with strong anti-bot behavior, such as Zhihu, may block MinerU Cloud, direct fetch, and Jina Reader.
 - Login-gated pages are not automatically supported. Users should copy the page body and use text mode.
 - Heavy JavaScript-rendered pages may return shell or incomplete content.
 - OCR for scanned PDFs is available only when the user configures MinerU Cloud API and enables OCR.
+- When the user confirms chunked analysis, long-document analysis still uses character-based chunking, not MinerU `content_list.json` semantic blocks.
 - Mobile behavior has not been validated.
-- URL extraction is best-effort. Users should review the preview before saving generated cards.
+- URL extraction is best-effort across both MinerU Cloud and Direct / Jina Reader modes. Users should review the preview before saving generated cards.
 
 ## Recommended Manual Tests
 
 - Text mode: paste a short article and generate a knowledge card.
 - PDF mode with built-in pdf.js: select a text-based PDF from the development vault.
-- PDF mode with MinerU Cloud API: configure a MinerU token, select a vault PDF, confirm the flow reaches card preview, and confirm `full.md` is saved under `RecallKit Sources` when enabled.
+- PDF mode with MinerU Cloud API: configure a MinerU token, select a vault PDF, confirm the flow reaches card preview, and confirm `full.md` plus referenced images are saved under `RecallKit Sources` when enabled.
+- URL mode with MinerU Cloud API: configure a MinerU token, enter a public article URL, confirm MinerU-HTML parsing reaches card preview, and confirm `full.md` is saved under `RecallKit Sources` when enabled.
 - Direct URL mode: test `https://example.com`.
 - Article URL mode: test a public article page, such as `https://www.paulgraham.com/greatwork.html`.
 - URL fallback mode: test a page where direct fetch fails but Jina Reader can read the content.
@@ -115,7 +128,13 @@ RecallKit is in local MVP development as an Obsidian plugin. The goal is to turn
 
 ## Next Milestones
 
-### M2.7: URL Extraction Quality
+### M2.8: PDF Semantic Chunking And Parse Reuse
+
+- Download and save MinerU `content_list.json`.
+- Chunk by headings, page numbers, tables, formulas, and image blocks instead of character count only.
+- Reuse saved MinerU parse results to avoid reprocessing the same PDF.
+
+### M2.9: URL Extraction Quality
 
 - Improve user-facing messages for blocked URLs.
 - Show extraction method in the preview UI or source section.

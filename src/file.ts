@@ -36,6 +36,30 @@ export async function createMarkdownFile(options: {
 	return options.app.vault.create(path, options.markdown);
 }
 
+export async function writeBinaryFile(options: {
+	app: App;
+	path: string;
+	data: ArrayBuffer;
+	overwrite?: boolean;
+}): Promise<void> {
+	const normalizedPath = normalizePath(options.path);
+	const folderPath = normalizedPath.split("/").slice(0, -1).join("/");
+	if (folderPath) {
+		await ensureFolder(options.app, folderPath);
+	}
+
+	const existing = options.app.vault.getAbstractFileByPath(normalizedPath);
+	if (existing instanceof TFile) {
+		if (!options.overwrite) {
+			return;
+		}
+		await options.app.vault.modifyBinary(existing, options.data);
+		return;
+	}
+
+	await options.app.vault.createBinary(normalizedPath, options.data);
+}
+
 export async function ensureFolder(app: App, folderPath: string): Promise<void> {
 	const parts = folderPath.split("/").filter(Boolean);
 	let current = "";

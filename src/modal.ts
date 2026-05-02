@@ -1,10 +1,10 @@
 import { App, Modal, Notice, Setting } from "obsidian";
 import RecallKitPlugin from "./main";
-import { createKnowledgeCard, createMarkdownFile } from "./file";
+import { createKnowledgeCard, createMarkdownFile, writeBinaryFile } from "./file";
 import { fetchUrlContent } from "./fetch";
 import { AnalysisProgress, analyzeWithOpenAICompatibleApi, RecallKitCardDraft } from "./llm";
 import { buildKnowledgeCardMarkdown } from "./markdown";
-import { parseVaultPdfWithMinerUCloud } from "./mineru";
+import { parseUrlWithMinerUCloud, parseVaultPdfWithMinerUCloud } from "./mineru";
 import { extractTextFromVaultPdf } from "./pdf";
 import {
 	AnalysisPromptMode,
@@ -53,7 +53,7 @@ export class RecallKitInputModal extends Modal {
 
 	close(): void {
 		if (this.state === "analyzing") {
-			new Notice("RecallKit is still analyzing. Please wait for the preview before closing this window.");
+			new Notice("RecallKit æ­£åœ¨åˆ†æžï¼Œè¯·ç­‰å¾…é¢„è§ˆç”ŸæˆåŽå†å…³é—­çª—å£ã€‚");
 			return;
 		}
 
@@ -175,6 +175,18 @@ export class RecallKitInputModal extends Modal {
 						: "正在读取粘贴文本。",
 			});
 			const content = await this.getAnalysisContent();
+			const contentLength = content.trim().length;
+			const singlePassLimit = Math.max(this.plugin.settings.singlePassCharLimit || 200000, 10000);
+			const allowChunking = contentLength > singlePassLimit
+				? this.confirmOversizedContent(contentLength, singlePassLimit)
+				: false;
+			if (contentLength > singlePassLimit && !allowChunking) {
+				this.state = "input";
+				this.analysisProgress = null;
+				this.render();
+				new Notice("内容超过单次分析上限，已取消分析。");
+				return;
+			}
 			this.updateAnalysisProgress({
 				stage: "preparing",
 				message: "正在加载分析模板。",
@@ -192,6 +204,7 @@ export class RecallKitInputModal extends Modal {
 				sourceType: this.sourceType,
 				sourceUrl: this.sourceType === "url" ? this.sourceValue : "",
 				analysisPrompt,
+				allowChunking,
 				onProgress: (progress) => {
 					this.updateAnalysisProgress(progress);
 				},
@@ -221,6 +234,16 @@ export class RecallKitInputModal extends Modal {
 	private updateAnalysisProgress(progress: AnalysisProgress): void {
 		this.analysisProgress = progress;
 		this.render();
+	}
+
+	private confirmOversizedContent(contentLength: number, singlePassLimit: number): boolean {
+		return window.confirm([
+			`当前待分析内容约 ${formatNumber(contentLength)} 字符，超过单次分析上限 ${formatNumber(singlePassLimit)} 字符。`,
+			"",
+			"如果继续，RecallKit 会改用分段分析；如果你的模型上下文窗口足够大，也可以先取消，然后在设置中调高“单次分析上限”。",
+			"",
+			"是否继续并使用分段分析？",
+		].join("\n"));
 	}
 
 	private renderAnalysisProgress(contentEl: HTMLElement): void {
@@ -396,6 +419,52 @@ export class RecallKitInputModal extends Modal {
 		}
 
 		if (this.sourceType === "url") {
+			if (this.plugin.settings.urlParser === "mineru-cloud") {
+				const mineru = await parseUrlWithMinerUCloud({
+					url: this.sourceValue,
+					settings: this.plugin.settings,
+					onProgress: (progress) => {
+						this.updateAnalysisProgress(progress);
+					},
+				});
+				this.sourceValue = mineru.path;
+				let savedMarkdownPath = "";
+				if (this.plugin.settings.mineruSaveMarkdown) {
+					this.updateAnalysisProgress({
+						stage: "preparing",
+						message: "æ­£åœ¨æŠŠ MinerU ç½‘é¡µ Markdown ä¿å­˜åˆ° vaultã€‚",
+					});
+					const savedFile = await createMarkdownFile({
+						app: this.app,
+						folder: this.plugin.settings.mineruOutputFolder,
+						baseName: `${buildUrlFileName(mineru.path)}-mineru-full`,
+						markdown: buildMinerUMarkdownSource({
+							sourceType: "url",
+							sourcePath: mineru.path,
+							taskState: mineru.taskState,
+							content: mineru.text,
+						}),
+					});
+					const assetFolderName = `${savedFile.basename}-assets`;
+					await this.app.vault.modify(savedFile, buildMinerUMarkdownSource({
+						sourceType: "url",
+						sourcePath: mineru.path,
+						taskState: mineru.taskState,
+						content: rewriteMinerUAssetLinks(mineru.text, assetFolderName),
+					}));
+					await this.saveMinerUAssets(mineru.assets, `${stripExtension(savedFile.path)}-assets`);
+					savedMarkdownPath = savedFile.path;
+				}
+
+				return [
+					`URL: ${mineru.path}`,
+					"URL è§£æžå™¨ï¼šMinerU äº‘ç«¯ APIï¼ˆMinerU-HTMLï¼‰",
+					`MinerU ä»»åŠ¡çŠ¶æ€ï¼š${mineru.taskState}`,
+					savedMarkdownPath ? `å·²ä¿å­˜ MinerU Markdownï¼š${savedMarkdownPath}` : "",
+					mineru.text,
+				].filter(Boolean).join("\n\n");
+			}
+
 			const fetched = await fetchUrlContent(this.sourceValue);
 			this.sourceValue = fetched.url;
 			const truncatedHint = fetched.truncated
@@ -435,11 +504,20 @@ export class RecallKitInputModal extends Modal {
 					folder: this.plugin.settings.mineruOutputFolder,
 					baseName: `${stripExtension(mineru.path)}-mineru-full`,
 					markdown: buildMinerUMarkdownSource({
-						pdfPath: mineru.path,
+						sourceType: "pdf",
+						sourcePath: mineru.path,
 						taskState: mineru.taskState,
 						content: mineru.text,
 					}),
 				});
+				const assetFolderName = `${savedFile.basename}-assets`;
+				await this.app.vault.modify(savedFile, buildMinerUMarkdownSource({
+					sourceType: "pdf",
+					sourcePath: mineru.path,
+					taskState: mineru.taskState,
+					content: rewriteMinerUAssetLinks(mineru.text, assetFolderName),
+				}));
+				await this.saveMinerUAssets(mineru.assets, `${stripExtension(savedFile.path)}-assets`);
 				savedMarkdownPath = savedFile.path;
 			}
 
@@ -465,6 +543,25 @@ export class RecallKitInputModal extends Modal {
 		].filter(Boolean).join("\n\n");
 	}
 
+	private async saveMinerUAssets(
+		assets: Array<{ path: string; data: Uint8Array }>,
+		assetFolder: string,
+	): Promise<void> {
+		for (const asset of assets) {
+			const assetPath = normalizeMinerUAssetPath(asset.path);
+			if (!assetPath) {
+				continue;
+			}
+
+			await writeBinaryFile({
+				app: this.app,
+				path: `${assetFolder}/${assetPath}`,
+				data: toArrayBuffer(asset.data),
+				overwrite: true,
+			});
+		}
+	}
+
 	private renderPreview(contentEl: HTMLElement): void {
 		if (!this.draft) {
 			this.state = "input";
@@ -481,7 +578,7 @@ export class RecallKitInputModal extends Modal {
 						if (!this.draft) {
 							return;
 						}
-						this.draft.title = value.trim() || "Untitled knowledge card";
+						this.draft.title = value.trim() || "æœªå‘½åçŸ¥è¯†å¡ç‰‡";
 						this.rebuildPreview();
 					});
 			});
@@ -573,15 +670,58 @@ function stripExtension(path: string): string {
 	return fileName.replace(/\.[^.]+$/, "");
 }
 
+function buildUrlFileName(url: string): string {
+	try {
+		const parsed = new URL(url);
+		const path = `${parsed.hostname}${parsed.pathname}`.replace(/\/+$/g, "");
+		return stripExtension(path.replace(/[^a-zA-Z0-9_.-]+/g, "-") || parsed.hostname);
+	} catch (_error) {
+		return "url";
+	}
+}
+
+function rewriteMinerUAssetLinks(markdown: string, assetFolderName: string): string {
+	return markdown.replace(/(!\[[^\]]*]\()((?:\.\/)?images\/[^)\s]+)(\))/g, (_match, prefix, path, suffix) => {
+		const normalizedPath = normalizeMinerUAssetPath(path);
+		return normalizedPath
+			? `${prefix}${assetFolderName}/${normalizedPath}${suffix}`
+			: `${prefix}${path}${suffix}`;
+	});
+}
+
+function normalizeMinerUAssetPath(path: string): string {
+	const normalized = path
+		.replace(/\\/g, "/")
+		.replace(/^\.\//, "")
+		.replace(/^\/+/, "");
+	const parts = normalized.split("/").filter(Boolean);
+	if (parts.length < 2 || parts[0] !== "images" || parts.some((part) => part === "." || part === "..")) {
+		return "";
+	}
+
+	return parts.join("/");
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+	const copy = new Uint8Array(bytes.byteLength);
+	copy.set(bytes);
+	return copy.buffer;
+}
+
+function formatNumber(value: number): string {
+	return new Intl.NumberFormat("zh-CN").format(value);
+}
+
 function buildMinerUMarkdownSource(options: {
-	pdfPath: string;
+	sourceType: "pdf" | "url";
+	sourcePath: string;
 	taskState: string;
 	content: string;
 }): string {
 	return [
 		"---",
-		"source_type: pdf",
-		`source_path: ${JSON.stringify(options.pdfPath)}`,
+		`source_type: ${options.sourceType}`,
+		`source_path: ${JSON.stringify(options.sourcePath)}`,
 		"parser: mineru-cloud",
 		`mineru_task_state: ${JSON.stringify(options.taskState)}`,
 		`created_at: ${JSON.stringify(new Date().toISOString())}`,

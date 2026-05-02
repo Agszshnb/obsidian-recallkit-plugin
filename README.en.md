@@ -14,12 +14,13 @@ It is useful for:
 ## Highlights
 
 - **Text to card**: Paste text and generate a structured Markdown knowledge card.
-- **URL to card**: Enter a web page URL and extract readable page content for analysis.
+- **URL to card**: Enter a web page URL and parse it into Markdown with MinerU Cloud API, or use the legacy direct/Jina extractor.
 - **PDF to card**: Select a PDF from the current vault and parse it with either built-in pdf.js or MinerU Cloud API.
-- **MinerU source capture**: Optionally save MinerU `full.md` results into the current vault under `RecallKit Sources`.
+- **MinerU source capture**: Optionally save MinerU `full.md` results into the current vault under `RecallKit Sources`; PDF result images are saved beside the source note as vault-readable assets.
 - **Analysis templates**: Use built-in templates for general content, news/events, papers/literature, and social media.
 - **Custom prompts**: Choose a Markdown prompt from your vault or write a prompt directly in the modal.
 - **Long-document chunking**: Short content uses one model call, while long URL, PDF, or text inputs are chunked, analyzed in parts, and synthesized into one final card.
+- **Single-pass analysis limit**: Configure how much content can be sent to the LLM in one request. If content exceeds the limit, RecallKit asks before switching to chunked analysis.
 - **Preview before saving**: Review and edit generated Markdown before it is written to your vault.
 - **Organized output**: Save cards into a configurable folder while avoiding filename overwrites.
 - **Flexible model setup**: Use an OpenAI-compatible Chat Completions API, with DeepSeek-oriented defaults.
@@ -28,12 +29,13 @@ It is useful for:
 
 1. Open **Settings > Community plugins > RecallKit** in Obsidian.
 2. Enter your API base URL, API key, and model name, such as `https://api.deepseek.com` and `deepseek-chat`.
-3. Configure PDF parsing. Built-in pdf.js is local and text-only; MinerU Cloud API requires a MinerU token and supports OCR, tables, formulas, and complex layouts.
-4. Configure the default analysis template, output folder, and default tags.
-5. Click the RecallKit ribbon icon, or run **Create knowledge card** from the command palette.
-6. Choose an input source: pasted text, a web page URL, or a PDF from your vault.
-7. Select an analysis template, or switch to a custom prompt.
-8. Click **Analyze**, review the generated card, edit it if needed, and save it to your vault.
+3. Configure URL parsing. MinerU Cloud API requires a MinerU token and converts web pages to Markdown; Direct / Jina Reader keeps the legacy extractor.
+4. Configure PDF parsing. Built-in pdf.js is local and text-only; MinerU Cloud API requires a MinerU token and supports OCR, tables, formulas, and complex layouts.
+5. Configure the single-pass analysis limit, default analysis template, output folder, and default tags.
+6. Click the RecallKit ribbon icon, or run **Create knowledge card** from the command palette.
+7. Choose an input source: pasted text, a web page URL, or a PDF from your vault.
+8. Select an analysis template, or switch to a custom prompt.
+9. Click **Analyze**, review the generated card, edit it if needed, and save it to your vault.
 
 ## Card Output
 
@@ -68,9 +70,9 @@ When you click **Analyze**, the plugin sends the selected text, extracted web pa
 
 For PDFs, RecallKit reads only the file you select from the current vault. If the PDF parser is set to MinerU Cloud API, the selected PDF is uploaded to MinerU for parsing, then RecallKit downloads the MinerU result zip and uses `full.md` for card generation. The MinerU API token is stored locally and is not written into generated cards.
 
-When enabled in settings, RecallKit also saves the MinerU `full.md` result into the current vault. The default folder is `RecallKit Sources`.
+When enabled in settings, RecallKit also saves the MinerU `full.md` result into the current vault. The default folder is `RecallKit Sources`. For PDF results, images referenced as `images/...` are saved into a same-name assets folder, and the Markdown image links are rewritten to vault-relative paths.
 
-For URLs, RecallKit requests the page you enter and extracts readable text. If direct extraction is not suitable, it uses Jina Reader (`https://r.jina.ai/`) to obtain cleaner Markdown content, then sends the extracted text to your configured model service.
+For URLs, RecallKit defaults to MinerU Cloud API with the `MinerU-HTML` model. It submits the URL to MinerU, downloads the result zip, extracts `full.md`, and sends that Markdown to your configured model service. If you switch URL parsing to **Direct / Jina Reader**, RecallKit uses the legacy direct request first and Jina Reader (`https://r.jina.ai/`) as fallback.
 
 ## Project Status
 

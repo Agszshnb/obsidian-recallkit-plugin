@@ -34,10 +34,10 @@ export async function fetchUrlContent(rawUrl: string): Promise<FetchResult> {
 		const fallbackError = normalizeError(error);
 		throw new Error(
 			[
-				"URL extraction failed.",
-				`Direct request: ${directError.message}`,
-				`Jina Reader fallback: ${fallbackError.message}`,
-				"Try text mode and paste the page body, or use an authenticated/external extractor for this site.",
+				"URL æå–å¤±è´¥ã€‚",
+				`ç›´æŽ¥æŠ“å–ï¼š${directError.message}`,
+				`Jina Reader å›žé€€ï¼š${fallbackError.message}`,
+				"å¯ä»¥æ”¹ç”¨æ–‡æœ¬æ¨¡å¼ç²˜è´´ç½‘é¡µæ­£æ–‡ï¼Œæˆ–ä½¿ç”¨å·²ç™»å½•/å¤–éƒ¨çš„æå–å·¥å…·ã€‚",
 			].join(" "),
 		);
 	}
@@ -56,13 +56,13 @@ async function fetchDirectUrlContent(url: string): Promise<ExtractedUrlContent> 
 	});
 
 	if (response.status >= 400) {
-		throw new Error(`URL request failed with HTTP ${response.status}.`);
+		throw new Error(`URL è¯·æ±‚å¤±è´¥ï¼ŒHTTP çŠ¶æ€ç ï¼š${response.status}ã€‚`);
 	}
 
 	const contentType = readHeader(response.headers, "content-type");
 	const htmlResponse = isHtmlResponse(contentType, response.text);
 	if (!htmlResponse && contentType && !isReadableTextResponse(contentType)) {
-		throw new Error(`URL did not return readable text or HTML (${contentType}).`);
+		throw new Error(`URL æ²¡æœ‰è¿”å›žå¯è¯»æ–‡æœ¬æˆ– HTMLï¼ˆ${contentType}ï¼‰ã€‚`);
 	}
 
 	const extraction = htmlResponse
@@ -70,7 +70,7 @@ async function fetchDirectUrlContent(url: string): Promise<ExtractedUrlContent> 
 		: extractFromPlainText(response.text, url);
 
 	if (!extraction.content.trim()) {
-		throw new Error("No readable text was extracted from this URL.");
+		throw new Error("æ²¡æœ‰ä»Žè¯¥ URL æå–åˆ°å¯è¯»æ–‡æœ¬ã€‚");
 	}
 
 	return {
@@ -92,7 +92,7 @@ async function fetchJinaReaderContent(url: string): Promise<ExtractedUrlContent>
 	});
 
 	if (response.status >= 400) {
-		throw new Error(`Jina Reader request failed with HTTP ${response.status}.`);
+		throw new Error(`Jina Reader è¯·æ±‚å¤±è´¥ï¼ŒHTTP çŠ¶æ€ç ï¼š${response.status}ã€‚`);
 	}
 
 	const warning = readJinaWarning(response.text);
@@ -126,11 +126,11 @@ function buildJinaReaderUrl(url: string): string {
 function assertUsefulExtractedContent(result: ExtractedUrlContent, source: string): void {
 	const content = result.content.trim();
 	if (content.length < MIN_USEFUL_TEXT_CHARS) {
-		throw new Error(`${source} returned too little readable text.`);
+		throw new Error(`${source} è¿”å›žçš„å¯è¯»æ–‡æœ¬è¿‡å°‘ã€‚`);
 	}
 
 	if (isKnownBlockedOrShellContent(result.url, result.title, content)) {
-		throw new Error(`${source} returned a login, anti-bot, or shell page instead of the article body.`);
+		throw new Error(`${source} è¿”å›žçš„æ˜¯ç™»å½•ã€åçˆ¬æˆ–é¡µé¢å£³ï¼Œä¸æ˜¯æ–‡ç« æ­£æ–‡ã€‚`);
 	}
 }
 
@@ -140,13 +140,13 @@ function readJinaWarning(markdown: string): string {
 		return "";
 	}
 
-	return `Jina Reader warning: ${warning}`;
+	return `Jina Reader è­¦å‘Šï¼š${warning}`;
 }
 
 function normalizeHttpUrl(value: string): string {
 	const trimmed = value.trim();
 	if (!trimmed) {
-		throw new Error("Please enter a URL.");
+		throw new Error("è¯·è¾“å…¥ URLã€‚");
 	}
 
 	const candidate = /^[a-z][a-z\d+\-.]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
@@ -155,11 +155,11 @@ function normalizeHttpUrl(value: string): string {
 	try {
 		parsed = new URL(candidate);
 	} catch (_error) {
-		throw new Error("Please enter a valid URL.");
+		throw new Error("è¯·è¾“å…¥æœ‰æ•ˆçš„ URLã€‚");
 	}
 
 	if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-		throw new Error("Only http and https URLs are supported.");
+		throw new Error("ä»…æ”¯æŒ http å’Œ https URLã€‚");
 	}
 
 	return parsed.toString();
